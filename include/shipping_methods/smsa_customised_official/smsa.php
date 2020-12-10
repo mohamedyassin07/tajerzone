@@ -29,4 +29,3 @@
         require(__DIR__ . '/Fronted/index.php');
         
     }
-    ssssssssssssssss

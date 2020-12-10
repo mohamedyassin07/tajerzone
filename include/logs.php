@@ -1,6 +1,5 @@
 <?php
-function cptui_register_my_cpts__log() {
-	
+function register_my_cpt_tjr_log() {
 	$labels = [
 		"name" => __( "TJR Log", "tjr" ),
 		"singular_name" => __( "TJR Logs", "tjr" ),
@@ -32,7 +31,7 @@ function cptui_register_my_cpts__log() {
 	register_post_type( "tjr_log", $args );
 }
 
-add_action( 'init', 'cptui_register_my_cpts__log' );
+add_action( 'init', 'register_my_cpt_tjr_log' );
 
     add_action('init' , function(){
         register_post_type('tjr_log' ,
