@@ -3,13 +3,19 @@ $order = new WC_Order($order->ID);
 
 $text_align = is_rtl() ? 'right' : 'left';
 
+$Custom_content = get_option('woocommerce_client_order_shipped_settings');
+
  /**
   * @hooked WC_Emails::email_header() Output the email header
   */
  do_action( 'woocommerce_email_header', $email_heading, $email );
  $order_url = order_receiving_confirmation_link($order->get_id());
 ?>
-
+<?php 
+    if( !empty( $Custom_content ) ){
+     echo wp_kses_post($Custom_content['message_content']);
+    }
+?>
 <p><?php printf( __( 'You have received an order from %s.', 'tjr' ), $order->get_formatted_billing_full_name() ); ?></p>
 <h2>
     <?php

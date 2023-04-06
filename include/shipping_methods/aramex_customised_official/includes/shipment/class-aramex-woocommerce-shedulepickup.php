@@ -97,7 +97,8 @@ class Aramex_Shedule_Method extends Aramex_Helper
             try {
                 $results = $soapClient->CreatePickup($params);
                 if ($results->HasErrors) {
-                    if (count($results->Notifications->Notification) > 1) {
+                    // var_export($results->Notifications->Notification);
+                    if ( is_array($results->Notifications->Notification) && count($results->Notifications->Notification) > 1) {
                         $error = "";
                         foreach ($results->Notifications->Notification as $notify_error) {
                             $error .= 'Aramex: ' . $notify_error->Code . ' - ' . $notify_error->Message . "<br>";

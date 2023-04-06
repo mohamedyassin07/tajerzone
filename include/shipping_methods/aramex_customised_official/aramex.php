@@ -26,6 +26,7 @@ if (WP_DEBUG && WP_DEBUG_DISPLAY && (defined('DOING_AJAX') && DOING_AJAX)) {
 */
 
 
+
 /*
  * Check if WooCommerce is active
  */
@@ -164,7 +165,7 @@ if (WP_DEBUG && WP_DEBUG_DISPLAY && (defined('DOING_AJAX') && DOING_AJAX)) {
     include_once('templates/frontend/apilocationvalidator_account.php');
 	include_once('templates/frontend/account_track.php');
 
-    if(production ==  false){
+    if( production ==  false ){
         add_action('woocommerce_admin_order_data_after_shipping_address', 'aramex_display_order_data_in_admin');
         add_action('woocommerce_admin_order_data_after_shipping_address', 'aramex_display_rate_calculator_in_admin');
         add_action('woocommerce_admin_order_data_after_shipping_address', 'aramex_display_schedule_pickup_in_admin');
@@ -187,6 +188,8 @@ if (WP_DEBUG && WP_DEBUG_DISPLAY && (defined('DOING_AJAX') && DOING_AJAX)) {
     }
 
     add_action('admin_enqueue_scripts', 'load_aramex_wp_admin_style');
+    add_action('wp_enqueue_scripts', 'load_aramex_wp_admin_style');
+
 
     /**
      * Register custom script
@@ -225,8 +228,11 @@ if (WP_DEBUG && WP_DEBUG_DISPLAY && (defined('DOING_AJAX') && DOING_AJAX)) {
     }
 
     add_action('admin_enqueue_scripts', 'load_aramex_script_common');
+    add_action('wp_enqueue_scripts', 'load_aramex_script_common');
     add_action('admin_enqueue_scripts', 'load_aramex_script_jquery_chained');
     add_action('admin_enqueue_scripts', 'load_aramex_script_validate_aramex');
+    add_action('wp_enqueue_scripts', 'load_aramex_script_jquery_chained');
+    add_action('wp_enqueue_scripts', 'load_aramex_script_validate_aramex');
     
     /**
      * Add autocomplete script
@@ -281,6 +287,7 @@ if (WP_DEBUG && WP_DEBUG_DISPLAY && (defined('DOING_AJAX') && DOING_AJAX)) {
     }
 
     add_action('admin_footer', 'custom_aramex_bulk_admin_footer');
+    
 
     /**
      * Register Bulk Template
@@ -441,3 +448,13 @@ if (WP_DEBUG && WP_DEBUG_DISPLAY && (defined('DOING_AJAX') && DOING_AJAX)) {
     }
     add_action('init', 'load_aramex_classes');
 //}
+
+add_action( 'wp_footer', 'tjr_load_ajax' );
+function tjr_load_ajax()
+{
+    ?>
+    <script type="text/javascript">
+        var ajaxurl = "<?php echo admin_url('admin-ajax.php'); ?>";
+    </script>
+    <?php
+}

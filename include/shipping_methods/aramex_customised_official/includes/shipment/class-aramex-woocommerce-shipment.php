@@ -320,13 +320,7 @@ class Aramex_Shipment_Method extends Aramex_Helper
             }
 
             try {
-                remote_pre($major_par);
-                pre($major_par ,  'major par');
                 $auth_call = $soapClient->CreateShipments($major_par);
-                remote_pre($auth_call);
-                pre($major_par ,  'auth_call');
-
-
                 if ($auth_call->HasErrors) {
                     if (empty($auth_call->Shipments)) {
                         if (count($auth_call->Notifications->Notification) > 1) {
@@ -446,10 +440,7 @@ class Aramex_Shipment_Method extends Aramex_Helper
                     }
                 }
             } catch (Exception $e) {
-                $aramex_errors = true;
-                remote_pre($aramex_errors);
-                pre($aramex_errors , __FILE__ . " Error");
-    
+                $aramex_errors = true;   
                 aramex_errors()->add('error', $e->getMessage());
             }
 

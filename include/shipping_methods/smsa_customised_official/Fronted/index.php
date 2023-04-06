@@ -1,9 +1,7 @@
 <?php    
-    add_action('woocommerce_thankyou_order_id','create_smsa_bills',10);
-    function create_smsa_bills($parent_order_id)
-    {
+
         $child_orders = array(
-            'post_parent' => $parent_order_id,
+            'post_parent' => $order_id,
             'post_type' => 'shop_order',
         );
         $child_orders = get_children($child_orders);
@@ -12,7 +10,7 @@
                 $orders[] = $child->ID;  
             }
         }else {
-            $orders[] = $parent_order_id ; 
+            $orders[] = $order_id ; 
         }
         foreach ($orders as $order_id) {
             $seller_id = dokan_get_seller_id_by_order( $order_id );
@@ -25,13 +23,10 @@
             $dataHelper = optional($WebGate_Shipping_Method->settings);
             $shipping_methods = $order->get_shipping_method();
             $payment_method = $order->get_payment_method();
-            
-            if($shipping_methods == $dataHelper->title)
-            {
                 $order->update_meta_data('_shipping_method_awb' , '_smsa');
                 $order->save();
                 
-                $SMSA = new SMSA();
+                $SMSA = new SMSA_API();
                 
                 $customer_name = $order->get_shipping_first_name() . ' ' . $order->get_shipping_last_name();
                 $currency_code = $order->get_currency();
@@ -65,7 +60,7 @@
                     'cAddr2' => $order->get_shipping_address_2() ,
                     'shipType' => 'DLV' ,
                     'PCs' => $order->get_item_count() ,
-                    'cEmail' => $order->get_billing_email() ,
+                    'cEmail' => $order->get_billing_email(),
                     'carrValue' => '' ,
                     'carrCurr' => $currency_symbol ,
                     'codAmt' => $payment_method == 'cod' ? $order->get_total() : '0' ,
@@ -95,7 +90,6 @@
                 
                 // send data soap
                 $addShipMPS = $SMSA->addShipMPS($data);
-                pre($addShipMPS , 'add ship');
                 if($addShipMPS instanceof Exception)
                 {
                     // submit log
@@ -103,6 +97,7 @@
                         'post_type' => 'tjr_log' ,
                         'post_excerpt' => $addShipMPS->getMessage(),
                         'meta_input' => $log_data ,
+                        'post_status'   => 'publish',
                     ]);
                 }elseif ($addShipMPS->addShipMPSResult =='Failed :: Invalid Passkey') {
                     // submit log
@@ -110,6 +105,7 @@
                         'post_type' => 'tjr_log' ,
                         'post_excerpt' => $addShipMPS->addShipMPSResult,
                         'meta_input' => $log_data ,
+                        'post_status'   => 'publish',
                     ]);                
                 }
                 else
@@ -132,24 +128,9 @@
                         'post_type' => 'tjr_log' ,
                         'post_excerpt' => $addShipMPS->addShipMPSResult ,
                         'meta_input' => $log_data ,
+                        'post_status'   => 'publish',
                     ]);
                 }
-            }
+            
         }
-    }
     
-    //    add_action( 'all', function ( $tag ) {
-    //        echo "<pre>" . $tag . "</pre>";
-    //    } );
-    
-    
-    // Add a custom metabox only for shop_order post type (order edit pages)
-    add_action('woocommerce_order_details_after_customer_details' , function(){
-        $order_id = optional($_GET,get_query_var('view-order'))->{'view-order'};
-        
-        if(get_post_meta($order_id , '_shipping_method_awb' , true) == '_smsa')
-        {
-            require __DIR__ . '/view.php';
-            awb_admin_message_clear();
-        }
-    });

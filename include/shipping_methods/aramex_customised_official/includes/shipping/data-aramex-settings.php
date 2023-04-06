@@ -26,6 +26,12 @@ return array(
         'description' => __('Title to be display on site', 'aramex'),
         'default' => __('Aramex Shipping', 'aramex')
     ),
+    'tax_enabled' => [
+        'title' => __('Enable Tax' , 'tjr') ,
+        'type' => 'checkbox' ,
+        'description' => __('Enable Tax For this shipping.' , 'tjr') ,
+        'default' => 'yes' ,
+    ] ,
     // TJR start //
     'tajerzone_settings_title' => [
         'title' => __('TajerZone Settings' , 'tjr') ,
@@ -33,25 +39,25 @@ return array(
     ] ,
     'price' => [
         'title' => __('Shpping Fixed Price Fees' , 'tjr') ,
-        'type' => 'number' ,
+        'type' => 'decimal' ,
         'default' => 0 ,
         'description' => __('If it\'s value > 0 it will be used instead of the Official Aramex Calculations', 'tjr'),
     ],
     'defult_product_weight' => [
         'title' => __('Defult Product Weight' , 'tjr') ,
-        'type' => 'number' ,
+        'type' => 'decimal' ,
         'default' => 1 ,
         'description' => __('Defult Product Weight, applied if the product don\'t has a correct weight' , 'tjr') ,
     ] ,                        
     'extra_weight_limit' => [
         'title' => __('Extra Weight Limit' , 'tjr') ,
-        'type' => 'number' ,
+        'type' => 'decimal' ,
         'default' => 0 ,
         'description' => __('Extra Weight fees will not applied up to this weight limit' , 'tjr') ,
     ] ,                        
     'fees_per_extra_weight_unit' => [
         'title' => __('Fees per extra weight Unit' , 'tjr') ,
-        'type' => 'number' ,
+        'type' => 'decimal' ,
         'default' => 0 ,
         'description' => __('Extra Fees will be applied for weights larger than "Extra Weight Limit" per weight unit' , 'tjr') ,
     ] ,

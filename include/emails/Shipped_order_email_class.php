@@ -19,8 +19,8 @@ class WC_Confirmed_Order_Email  extends WC_Email {
 
         add_filter( 'woo_tjr_send_shipped_mail', [ $this, 'prevent_sub_order_admin_email' ], 10, 2 );
 
-        add_action( 'woocommerce_order_status_pending_to_order_confirmed', array( $this, 'trigger' ) );
-        add_action( 'woocommerce_order_status_processing_to_order_confirmed', array( $this, 'trigger' ) );
+        add_action( 'woocommerce_order_status_shipped', array( $this, 'trigger' ) );
+        add_action( 'woocommerce_order_status_shipped_notification', array( $this, 'trigger' ) );
 
         parent::__construct();
 
@@ -56,8 +56,7 @@ class WC_Confirmed_Order_Email  extends WC_Email {
      * @param array $order.
      */
     public function trigger( $order_id, $order = false ) {
-        remote_pre('email '  .  $order_id);
-
+  
         if ( ! $this->is_enabled() ) {
             return;
         }
@@ -85,6 +84,15 @@ class WC_Confirmed_Order_Email  extends WC_Email {
 	        $this->send( $order->get_billing_email() , $this->get_subject(), $this->get_content(), $this->get_headers(), $this->get_attachments() );
         }
         $this->restore_locale();
+    }
+
+    public function order_receiving_confirmation_link($order_id){
+        $page_id = option_val('dokan_pages');
+        if( !empty( $page_id ) ) {
+            $my_orders_page = $page_id['dashboard'];
+        }
+        $page_link =  get_page_link($my_orders_page) .'/orders/?order_id='.$order_id;
+        return $page_link;
     }
 
     /**

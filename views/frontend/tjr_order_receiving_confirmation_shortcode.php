@@ -1,14 +1,17 @@
 <?php
+$order_id = $data['order_id'];
 $order =  new WC_Order($order_id);
 $has_access =  false;
-if($order->get_user_id() == get_current_user_id() ){
+
+if( $order->get_user_id() == get_current_user_id() ){
     $has_access =  true;
 }
 if(!$has_access){
-    echo __('You don\'t have acess to this order ' , 'tjr');
+    echo __('You don\'t have acess to Confirmed Received this order ' , 'tjr');
     return;
 }
 
+update_post_meta( $order_id, 'recieving_confirmation',0);
 $confirmation = get_post_meta( $order_id, 'recieving_confirmation', true);
 $confirmation = $confirmation == 1 ?  $confirmation : false;
 if($confirmation){
@@ -17,9 +20,10 @@ if($confirmation){
 }
 
 $status =  $order->get_status();
+// prr($status);
 if($status == 'completed'){
     echo __('This is Order is already marked as Completed' , 'tjr');
-}elseif ($status == 'shipped') {
+}elseif ( $status == 'shipped' || $status == 'on-hold' || $status == 'processing' ) {
     $duration = option_val('tjr_settings_order_receiving_confirmation_duration');
     $duration = is_numeric($duration) ? $duration : 14;
     $duration = $duration *  24*60*60; // in seconds
@@ -32,9 +36,16 @@ if($status == 'completed'){
         ?>
         <div id='tjr_approving_div'>
             <h3 class='center'><?= __('Please Approve your Order Receiving Once you already Received it' , 'tjr');?></h3>   
-            <center><label class='center'><?= __('I Recieved the Order' , 'tjr');?></label></center>
-            <center><input id='tjr_approving_checkbox' class='center' type="checkbox" value="1"></center>
-            <center><button id='tjr_approving_button'><?= __('Approve' , 'tjr');?></button></center>
+            <label class='center' style="
+                display: flex;
+                flex-direction: row;
+                align-items: center;
+                align-content: center;
+                justify-content: flex-start;
+            "><?= __('I Recieved the Order' , 'tjr');?>
+            <input id='tjr_approving_checkbox' class='center' type="checkbox" value="1" style="margin: 0 10px;">
+            <button id='tjr_approving_button'><?= __('Approve' , 'tjr');?></button>
+            </label>
         </div>
         <div id='tjr_approving_msg'>
         </div>
@@ -51,7 +62,7 @@ if($status == 'completed'){
                             type : 'post',
                             data : {
                                 action : 'tjr_recieving_confirmation',
-                                order_id : <?= $_GET['order_id'];?> ,
+                                order_id : <?= $order_id;?> ,
                             },
                             beforeSend : function(response) {
                                 msg = "</br></br><h3>" + 'Please Wait . . . . .' + "</h3></br></br>";

@@ -31,7 +31,7 @@ function register_my_cpt_tjr_log() {
 	register_post_type( "tjr_log", $args );
 }
 
-add_action( 'init', 'register_my_cpt_tjr_log' );
+// add_action( 'init', 'register_my_cpt_tjr_log' );
 
     add_action('init' , function(){
         register_post_type('tjr_log' ,
@@ -57,6 +57,7 @@ add_action( 'init', 'register_my_cpt_tjr_log' );
                 'rest_controller_class' => false ,
                 "capability_type" => "post" ,
                 'map_meta_cap' => true ,
+                "menu_icon" => "dashicons-text-page",
                 'capabilities' => [
                     'create_posts' => false ,
                 ] ,
@@ -68,6 +69,7 @@ add_action( 'init', 'register_my_cpt_tjr_log' );
     add_filter('manage_tjr_log_posts_columns' , function($columns){
         
         $columns = [
+            'shipping' => __('shipping'),
             'id' => __('id') ,
             'order_id' => __('order_id') ,
             'customer_id' => __('customer_id') ,
@@ -84,6 +86,9 @@ add_action( 'init', 'register_my_cpt_tjr_log' );
         
         switch($column)
         {
+            case 'shipping' :
+                echo get_post_meta($post_id , 'tjr_shipping_method', true);
+                break;
             case 'id' :
                 echo $post_id;
                 break;

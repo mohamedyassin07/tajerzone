@@ -1,28 +1,4 @@
 <?php 
-function tjr_calculate_shipping_cost($contents){
-    //pre($package['contents'] , 'Pachages Data');
-    //pre(optional($this->settings , false) ,  'Current options');
-    $weight_by_vendor =  array();
-    $weight  =  0;
-    $total_cost =  0;
-    foreach ( $contents as $product ) 
-    { 
-        $product_date = $product['data'];
-        $product_weight = is_numeric($product_date->get_weight()) /*&& $product_date->get_weight()*/ ? $product_date->get_weight() :  optional($this->settings , false)->product_defult_weight;
-        $product_weight = $product_weight * $product['quantity'];
-        $weight = $weight + $product_weight * $product['quantity'];
-        $vendor_id = get_post_field( 'post_author', $product['product_id'] );
-        $weight_by_vendor[$vendor_id] =  isset($weight_by_vendor[$vendor_id]) && $weight_by_vendor[$vendor_id] > 0 ?  $weight_by_vendor[$vendor_id] +  $product_weight : $product_weight ;
-    }
-
-    foreach ($weight_by_vendor as $vendor => $vendor_products_weight) {
-        $vendor_products_weight =  round_up_to_correct_num($vendor_products_weight);
-        $dif =  $vendor_products_weight - optional($this->settings , false)->vendor_shipping_min_weight;
-        $total_cost += $dif >  0 ?  optional($this->settings , false)->shipping_per_vendor_price + $dif * optional($this->settings , false)->fees_per_extra_weight : optional($this->settings , false)->shipping_per_vendor_price;
-    }
-
-    return $cost;
-}
 add_action('dokan_order_detail_after_order_items' , 'shipping_mangement_in_vendor_dashboard' ,  10 ,  1);
 function shipping_mangement_in_vendor_dashboard($order){?>
     <div class="" style="width:100%">
@@ -57,12 +33,13 @@ function _get_order_status_shipped_class($defult,$status)
 {
     return $status;
 }
-add_action('woocommerce_view_order','tjr_shipping_mangement_client_dashboard' ,  10 ,  1);
+// add_action('woocommerce_view_order','tjr_shipping_mangement_client_dashboard' ,  10 ,  1);
 function tjr_shipping_mangement_client_dashboard($order_id){
     $order = wc_get_order($order_id);
     $data['order'] = $order;
     $data['vendors_orders'] = vendors_orders($order_id);
     $data['view_for'] =  'client';
+    
     view('general/shipping_template' , $data);              
 }
 function tjr_add_custom_meta_boxes(){
@@ -75,10 +52,36 @@ function tjr_admin_order_mangement_meta_box($order){
     $data['order'] = $order;
     $data['vendors_orders'] = vendors_orders($order->get_id());
     $data['view_for'] = 'admin';
-    view('general/shipping_template' , $data);
+    $shipping_method = get_primary_related_shipping_method($order);
+    $shipping_method_lable = explode(' ',trim(strtolower($shipping_method)));
+    
+    if( isset($shipping_method_lable[0]) && $shipping_method_lable[0] == 'aramex' ){
+        aramex_display_order_data_in_admin($order);
+    }else{
+        view('general/shipping_template' , $data);
+    }
 }
 function tjr_remove_custom_field_meta_box()
 {
     remove_meta_box("postcustom", "post", "normal");
 }
 add_action("do_meta_boxes", "tjr_remove_custom_field_meta_box");
+
+
+add_action('woocommerce_thankyou_order_id', 'tjr_create_ship', 10 ); 
+function tjr_create_ship( $order_id ){
+        
+    $order = new WC_Order($order_id);
+    $shipping_methods = $order->get_shipping_methods(); 
+    $shipping = $order->get_items( 'shipping' );
+    $method_id =  array_pop( $shipping );
+    if( $method_id->get_method_id() === 'aramex' ){
+        include_once inc . 'shipping_methods/aramex_customised_official/aramex_ship.php';
+        tjr_create_aramex_ship( $order_id );
+
+    }elseif( $method_id->get_method_id() === 'smsa' || $method_id->get_method_id() === 'webgate_method' ) {
+        include_once inc . 'shipping_methods/smsa_customised_official/Fronted/index.php' ;
+    }elseif( $method_id->get_method_id() === 'dhl_method'  ){
+        tjr_create_dhl_ship( $order_id );
+    }
+}

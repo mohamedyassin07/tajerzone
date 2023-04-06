@@ -9,17 +9,29 @@ function register_tjr_shipped_order_status() {
         'show_in_admin_status_list' => true,
         'label_count'               => _n_noop( 'Shipped <span class="count">(%s)</span>', 'Shipped<span class="count">(%s)</span>', 'tjr' )
     ) );
+    register_post_status( 'wc-delivered', array(
+        'label'                     => _x( 'Delivered', 'Order status', 'tjr' ),
+        'public'                    => true,
+        'exclude_from_search'       => false,
+        'show_in_admin_all_list'    => true,
+        'show_in_admin_status_list' => true,
+        'label_count'               => _n_noop( 'Delivered <span class="count">(%s)</span>', 'Delivered<span class="count">(%s)</span>', 'tjr' )
+    ) );
 }
 //add_action( 'woocommerce_init', 'tjr_new_wc_order_statuses' );
 add_filter( 'wc_order_statuses', 'tjr_new_wc_order_statuses' );
 function tjr_new_wc_order_statuses( $order_statuses ) {
     $new_order_statuses = array();
     foreach ( $order_statuses as $key => $status ) {
+        // prr($key);
         if ( 'wc-completed' === $key ) {
             $new_order_statuses['wc-shipped'] = _x( 'Shipped', 'Order status', 'woocommerce' );
+            $new_order_statuses['wc-delivered'] = _x( 'Delivered', 'Order status', 'woocommerce' );
         }
+        
         $new_order_statuses[ $key ] = $status;
     }
+    // prr($new_order_statuses);
     return $new_order_statuses;
 }
 add_action( 'woocommerce_admin_order_actions', 'change_available_actions_in_vendor_dashboard', 10, 2 );
@@ -133,15 +145,49 @@ function tjr_shipping_process(){
     $order_id   = $_POST['order_id'];
     $method     = $_POST['method'];
     $view_for   = $_POST['view_for'];
+    global $wpdb;
+            $table_perfixed = $wpdb->prefix . 'comments';
+            $results = $wpdb->get_results("
+                SELECT *
+                FROM $table_perfixed
+                WHERE  `comment_post_ID` = $order_id
+                AND  `comment_type` LIKE  'order_note'
+            ");
+            $history_list = array();
+            foreach ($results as $shipment) {
+                $history_list[] = $shipment->comment_content;
+            }
+            $last_track = "";
+            if (count($history_list)) {
+                foreach ($history_list as $history) {
+                    $awbno = strstr($history, "- Order No", true);
+                    $awbno = trim($awbno, "AWB No.");
+                    if (isset($awbno)) {
+                        if ((int)$awbno) {
+                            $last_track = $awbno;
+                            break;
+                        }
+                    }
+                    $awbno = trim($awbno, "Aramex Shipment Return Order AWB No.");
+                    if (isset($awbno)) {
+                        if ((int)$awbno) {
+                            $last_track = $awbno;
+                            break;
+                        }
+                    }
+                }
+            }
     $awb_no     = get_post_meta($order_id,'awb_number',true);
-    $awb_no     = 290115964974;
-    $SMSA   =  new SMSA();
+    $awb_no     =  $awb_no >   0  ?  $awb_no : $last_track ; 
+    // $awb_no     = 290115964974;
+    $SMSA   =  new SMSA_API();
+    $order = new WC_Order($order_id);
     $available_processes = available_processes($method,$view_for,$awb_no);
     $user_id    = get_current_user_id() ;
     $response   = array();
     $msg = '';
-
-    if(array_key_exists($process,$available_processes)){
+    if( array_key_exists( $process, $available_processes ) ){
+        if( $method == 'smsa' ){
         if ($process ==  'getStatus') {
             $msg = "<b>".$SMSA->getStatus($awb_no)."</b>";
         }elseif ($process == 'downloadPdf') {
@@ -158,30 +204,116 @@ function tjr_shipping_process(){
         }elseif ($process == 'getTracking') {
             $resp = $SMSA->getTracking($awb_no);
             foreach ($resp as $key => $value) {
-                $msg .= "<b>$key: </b> $value</br>";
+                $msg .= "<b>$key :  </b> $value</br>";
             }
         }elseif ($process == 'cancelShipment') {
             $msg = "<b>".$SMSA->cancelShipment($awb_no)."</b>";
         }elseif ($process == 'regenerateShipment') {
             // cancel the old one 
-            if($SMSA->cancelShipment($awb_no)){
+            if( $SMSA->cancelShipment( $awb_no ) ){
             // remove the old data
-                $order->update_meta_data('awb_number' , $addShipMPS->addShipMPSResult);
-                $order->update_meta_data('awb_status' , ($awd_status instanceof Exception) ? '' : $awd_status);
-
             // create new one 
-                create_smsa_bills($order_id);
-                if(2>1){
-                    // reload the page
-                    $response['reload'] = 1;
+                $res = json_decode( create_smsa_bills($order_id));
+                $msg .= "<b>[awb_number] :  </b> " . $res->awb_number . " </br>";
+
+            }
+            
+        }elseif($process == 'getPDF'){
+            $msg      = base64_encode($SMSA->getPDF($awb_no));
+            $response['awb_no'] = $awb_no;
+            $response['link']   = true;
+        }
+    }else if( $method == 'aramex' ) {
+        if ($process == 'getTracking') {
+            $settings = get_option('woocommerce_aramex_settings');
+            $path = TJR_URL . 'include/shipping_methods/aramex_customised_official/wsdl/Tracking.wsdl';
+            $soapClient = new SoapClient($path, array('soap_version' => SOAP_1_1));
+            $aramexParams['ClientInfo'] = tjr_getClientInfo($settings);
+            $aramexParams['Transaction'] = array('Reference1' => '001');
+            $aramexParams['Shipments'] = array($awb_no);
+            $resAramex = $soapClient->TrackShipments($aramexParams);
+            $msg = getTrackingInfoTable($resAramex->TrackingResults->KeyValueOfstringArrayOfTrackingResultmFAkxlpY->Value->TrackingResult);
+        }elseif( $process == 'downloadPdf' ){
+            
+            $settings = get_option('woocommerce_aramex_settings');
+            if ($settings['sandbox_flag'] == 1) {
+                $path = 'https://ws.dev.aramex.net/ShippingAPI.V2/Shipping/Service_1_0.svc?singleWsdl';
+            } else {
+                $path = TJR_URL . 'include/shipping_methods/aramex_customised_official/wsdl/shipping.wsdl';
+            }
+            $params = array(
+                'ClientInfo' => tjr_getClientInfo($settings),
+                'Transaction' => array(
+                    'Reference1' => $order_id,
+                    'Reference2' => '',
+                    'Reference3' => '',
+                    'Reference4' => '',
+                    'Reference5' => '',
+                ),
+                'LabelInfo' => array(
+                    'ReportID' => 9729,
+                    'ReportType' => 'URL',
+                ),
+            );
+            $params['ShipmentNumber'] = $awb_no; 
+            $soapClient = new SoapClient($path, array('soap_version' => SOAP_1_1));
+            try {
+                $auth_call = $soapClient->PrintLabel($params);
+                      
+                /* bof  PDF demaged Fixes debug */
+                if ($auth_call->HasErrors) {
+                    if (count($auth_call->Notifications->Notification) > 1) {
+                        foreach ($auth_call->Notifications->Notification as $notify_error) {
+                            $error = "";
+                            $msg .= 'Aramex: ' . $notify_error->Code . ' - ' . $notify_error->Message;
+                        }
+                    } else {
+                        $msg = 'Aramex: ' . $auth_call->Notifications->Notification->Code . ' - ' . $auth_call->Notifications->Notification->Message;
+                    }
                 }
+                /* eof  PDF demaged Fixes */
+                $filepath = $auth_call->ShipmentLabel->LabelURL;
+                $msg = '<a href="'.$filepath.'" target="_blanck">Download</a>';
+            } catch (SoapFault $fault) {
+                $msg =  $fault->faultstring;
+            } catch (Exception $e) {
+                $msg = $e->getMessage();
             }
         }
-    }else {
+    } elseif( $method == 'dhl' ){
+        if ($process == 'getStatus') {
+            $dhl = new DHL();
+            $shipments_status = $dhl->Tracking( $body = array()  , $header = array(), $awb_no );
+            if( isset( $shipments_status->shipments[0] ) ) {
+                $msg = "<b>".$shipments_status->shipments[0]->status."</b>";
+            }
+        }
+        elseif ($process == 'Tracking') {
+            $dhl = new DHL();
+            $shipments_status = $dhl->Tracking( $body = array()  , $header = array(), $awb_no );
+            if( isset( $shipments_status->shipments[0] ) ) {
+                $msg = '<div>';
+                $msg .= "shipmentTrackingNumber : <b>".$shipments_status->shipments[0]->shipmentTrackingNumber."</b> <br>";
+                $msg .= "status : <b>".$shipments_status->shipments[0]->status."</b><br>";
+                $msg .= "shipmentTimestamp : <b>".$shipments_status->shipments[0]->shipmentTimestamp."</b><br>";
+            }
+
+        }
+        elseif ($process == 'downloadPdf') {
+
+            $msg      = get_post_meta($order_id,'awb_lable',true);;
+            $response['awb_no'] = $awb_no;
+            $response['link']   = true;
+            
+
+        }
+    } else {
         $msg = __('This process not supported' , 'tjr');
     }
-    $response['msg'] = $msg != '' ? $msg :  __('Something Went Wrong','tjr');
-    wp_send_json_success($response);
+        $response['msg'] = $msg != '' ? $msg :  __('Something Went Wrong','tjr');
+        wp_send_json_success($response);
+        die();
+    }
 }
 
 add_filter( 'manage_edit-shop_order_columns','tjr_shipping_method_orders_column');
@@ -224,7 +356,7 @@ add_action( 'wp_ajax_tjr_recieving_confirmation','tjr_recieving_confirmation_aja
 function tjr_recieving_confirmation_ajax_fn(){
     $order_id   = $_POST['order_id'];
     $order = new WC_Order($order_id);
-    $order->update_status('completed',__('Customer Approved Recieving','tjr') );
+    $order->update_status('delivered',__('Customer Approved Recieving','tjr') );
 
     update_post_meta( $order_id,'recieving_confirmation',1);
     $response =  __('Thanks for your time.' , 'tjr');
@@ -249,3 +381,76 @@ add_action( 'tjr_auto_change_order_status_to_completed','tjr_auto_change_order_s
  $current_time =  current_time( 'timestamp');
  $time_to_send =  $current_time + 18000 ;
 // wp_schedule_single_event( $current_time, 'tjr_auto_change_order_status_to_completed' , array( $order_id , $current_time , $time_to_send ) );
+
+/**
+ * Get info about Admin
+ *
+ * @param string $nonce Nonce
+ * @return array
+ */
+function tjr_getClientInfo( $settings )
+{
+    return array(
+        'AccountCountryCode' => $settings['account_country_code'],
+        'AccountEntity' => $settings['account_entity'],
+        'AccountNumber' => $settings['account_number'],
+        'AccountPin' => $settings['account_pin'],
+        'UserName' => $settings['user_name'],
+        'Password' => $settings['password'],
+        'Version' => 'v1.0',
+        'Source' => 31,
+        'address' => $settings['address'],
+        'city' => $settings['city'],
+        'state' => $settings['state'],
+        'postalcode' => $settings['postalcode'],
+        'country' => $settings['country'],
+        'name' => $settings['name'],
+        'company' => $settings['company'],
+        'phone' => $settings['phone'],
+        'email' => $settings['email_origin'],
+        'report_id' => $settings['report_id'],
+    );
+}
+
+/**
+     * Creates HTML code for tracking table
+     *
+     * @param $HAWBHistory array
+     * @return string
+     */
+    function getTrackingInfoTable($HAWBHistory)
+    {
+        $checkArray = is_array($HAWBHistory);
+        $resultTable = '<table summary="Item Tracking"  class="data-table">';
+        $resultTable .= "<col width='1'>
+                          <col width='1'>
+                          <col width='1'>
+                          <col width='1'>
+                          <thead>
+                          <tr class='first last'>
+                          <th>" . __('Location', 'aramex') . "</th>
+                          <th>" . __('Action Date/Time', 'aramex') . "</th>
+                          <th class='a-right'>" . __('Tracking Description', 'aramex') . "</th>
+                          <th class='a-center'>" . __('Comments', 'aramex') . "</th>
+                          </tr>
+                          </thead><tbody>";
+        if ($checkArray) {
+            foreach ($HAWBHistory as $HAWBUpdate) {
+                $resultTable .= '<tr>
+                    <td>' . $HAWBUpdate->UpdateLocation . '</td>
+                    <td>' . $HAWBUpdate->UpdateDateTime . '</td>
+                    <td>' . $HAWBUpdate->UpdateDescription . '</td>
+                    <td>' . $HAWBUpdate->Comments . '</td>
+                    </tr>';
+            }
+        } else {
+            $resultTable .= '<tr>
+                    <td>' . $HAWBHistory->UpdateLocation . '</td>
+                    <td>' . $HAWBHistory->UpdateDateTime . '</td>
+                    <td>' . $HAWBHistory->UpdateDescription . '</td>
+                    <td>' . $HAWBHistory->Comments . '</td>
+                    </tr>';
+        }
+        $resultTable .= '</tbody></table>';
+        return $resultTable;
+    }

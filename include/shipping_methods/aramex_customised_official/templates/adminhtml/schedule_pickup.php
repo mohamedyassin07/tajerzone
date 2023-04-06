@@ -22,12 +22,12 @@ Domain Path:  /languages
 function aramex_display_schedule_pickup_in_admin($order)
 {
     $get_userdata = get_userdata(get_current_user_id());
-    if (!$get_userdata->allcaps['edit_shop_order'] || !$get_userdata->allcaps['read_shop_order'] || !$get_userdata->allcaps['edit_shop_orders'] || !$get_userdata->allcaps['edit_others_shop_orders']
-        || !$get_userdata->allcaps['publish_shop_orders'] || !$get_userdata->allcaps['read_private_shop_orders']
-        || !$get_userdata->allcaps['edit_private_shop_orders'] || !$get_userdata->allcaps['edit_published_shop_orders']
-    ) {
-        return false;
-    }
+    // if (!$get_userdata->allcaps['edit_shop_order'] || !$get_userdata->allcaps['read_shop_order'] || !$get_userdata->allcaps['edit_shop_orders'] || !$get_userdata->allcaps['edit_others_shop_orders']
+    //     || !$get_userdata->allcaps['publish_shop_orders'] || !$get_userdata->allcaps['read_private_shop_orders']
+    //     || !$get_userdata->allcaps['edit_private_shop_orders'] || !$get_userdata->allcaps['edit_published_shop_orders']
+    // ) {
+    //     return false;
+    // }
     $countryCollection = WC()->countries->countries;
     $settings = new Aramex_Shipping_Method();
     $city = $settings->settings['city'];
@@ -54,14 +54,14 @@ function aramex_display_schedule_pickup_in_admin($order)
                 $productData =  $product->get_data();
                 if( $product->is_type( 'simple' ) ){
                     // a simple product
-                    $weight = $productData['weight'];
+                    $weight =  is_numeric($productData['weight']) ?  $productData['weight'] : 0;
                   } elseif( $product->is_type( 'variation' ) ){
                     // a variable product
                     if(empty($productData['weight'])){
                         $parent_weight = $product->get_parent_data();
-                        $weight =  $parent_weight['weight'];
+                        $weight =  is_numeric($parent_weight['weight']) ?  $parent_weight['weight'] : 0;
                     }else{
-                        $weight = $productData['weight'];
+                        $weight =  is_numeric($productData['weight']) ?  $productData['weight'] : 0;
                     }
                   }
                 $totalWeight += $weight * $itemvv['qty'];
@@ -111,14 +111,14 @@ function aramex_display_schedule_pickup_in_admin($order)
                             <div class="field fl f1l">
                                 <label><?php echo esc_html__('Ready Time:', 'aramex'); ?> <span
                                             class="red">*</span></label>
-                                <select name="ready_hour" class="width-60 " id="ready_hour">
+                                <select name="ready_hour" class="width-65 " id="ready_hour">
                                     <?php $time = date("H", current_time('timestamp')); ?>
                                     <?php for ($i = 7; $i < 20; $i++): ?>
                                         <?php $val = ($i < 10) ? "0{$i}" : $i; ?>
                                         <option value="<?php echo esc_attr($val); ?>" <?php echo ($time == $i) ? 'selected="selected"' : ''; ?>><?php echo esc_attr($val); ?></option>
                                     <?php endfor; ?>
                                 </select>
-                                <select name="ready_minute" class="width-60  mar-lf-10" id="ready_minute">
+                                <select name="ready_minute" class="width-65  mar-lf-10" id="ready_minute">
                                     <?php $time = date("i", current_time('timestamp')); ?>
                                     <?php for ($i = 0; $i <= 55; $i = $i + 5): ?>
                                         <?php $val = ($i < 10) ? "0{$i}" : $i; ?>
@@ -130,7 +130,7 @@ function aramex_display_schedule_pickup_in_admin($order)
                             <div class="field fl mar-lf-10 f1l">
                                 <label><?php echo esc_html__('Closing Time:', 'aramex'); ?> <span
                                             class="red">*</span></label>
-                                <select name="latest_hour" class="width-60 fl" id="latest_hour">
+                                <select name="latest_hour" class="width-65 fl" id="latest_hour">
                                     <?php $time = date("H", current_time('timestamp')); ?>
                                     <?php $time = $time + 1; ?>
                                     <?php for ($i = 7; $i < 20; $i++): ?>
@@ -138,7 +138,7 @@ function aramex_display_schedule_pickup_in_admin($order)
                                         <option value="<?php echo esc_attr($val) ?>" <?php echo ($time == $val) ? 'selected="selected"' : ''; ?>><?php echo esc_attr($val); ?></option>
                                     <?php endfor; ?>
                                 </select>
-                                <select name="latest_minute" class="width-60 fl mar-lf-10" id="latest_minute">
+                                <select name="latest_minute" class="width-65 fl mar-lf-10" id="latest_minute">
                                     <?php $time = date("i", current_time('timestamp')); ?>
                                     <?php for ($i = 0; $i <= 55; $i = $i + 5): ?>
                                         <?php $val = ($i < 10) ? "0{$i}" : $i; ?>
@@ -224,9 +224,9 @@ function aramex_display_schedule_pickup_in_admin($order)
                                 <label><?php echo esc_html__('Weight', 'aramex'); ?> <span class="red">*</span></label>
                                 <div>
                                     <input name="text_weight" id="text_weight"
-                                           class="fl mar-right-10 width-60"
+                                           class="fl mar-right-10 width-65"
                                            value="<?php echo esc_attr(number_format($totalWeight, 2)); ?>"/>
-                                    <select name="weight_unit" class="fl width-60">
+                                    <select name="weight_unit" class="fl width-65">
                                         <option value="kg">kg</option>
                                         <option value="lbs">lbs</option>
                                     </select>
@@ -361,7 +361,7 @@ function aramex_display_schedule_pickup_in_admin($order)
                                    name="order_id"/>
                         </div>
                         <div class="aramex_loader"
-                             style="background-image: url(<?php echo plugins_url() . '/aramex-shipping-woocommerce/assets/img/preloader.gif'; ?>); height:60px; margin:10px 0; background-position-x: center; display:none; background-repeat: no-repeat; ">
+                             style="background-image: url(<?php esc_url( TJR_URL . 'include/shipping_methods/aramex_customised_official/assets/img/preloader.gif'); ?>); height:60px; margin:10px 0; background-position-x: center; display:none; background-repeat: no-repeat; ">
 
                         </div>
                         <div class="pickup-result mar-10">

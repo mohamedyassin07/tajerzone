@@ -22,13 +22,13 @@ Domain Path:  /languages
 function aramex_display_track_in_admin($order)
 {
     $get_userdata = get_userdata(get_current_user_id());
-    if (!$get_userdata->allcaps['edit_shop_order'] || !$get_userdata->allcaps['read_shop_order'] || !$get_userdata->allcaps['edit_shop_orders'] || !$get_userdata->allcaps['edit_others_shop_orders']
-        || !$get_userdata->allcaps['publish_shop_orders'] || !$get_userdata->allcaps['read_private_shop_orders']
-        || !$get_userdata->allcaps['edit_private_shop_orders'] || !$get_userdata->allcaps['edit_published_shop_orders']) {
-        return false;
-    }
+    // if (!$get_userdata->allcaps['edit_shop_order'] || !$get_userdata->allcaps['read_shop_order'] || !$get_userdata->allcaps['edit_shop_orders'] || !$get_userdata->allcaps['edit_others_shop_orders']
+    //     || !$get_userdata->allcaps['publish_shop_orders'] || !$get_userdata->allcaps['read_private_shop_orders']
+    //     || !$get_userdata->allcaps['edit_private_shop_orders'] || !$get_userdata->allcaps['edit_published_shop_orders']) {
+    //     return false;
+    // }
     global $post;
-    $order = new WC_Order($post->ID);
+    $order = new WC_Order($order);
     $order_id = $order->get_id();
     $history = get_comments(array(
         'post_id' => $order_id,
@@ -86,7 +86,7 @@ function aramex_display_track_in_admin($order)
                             } ?>
                 </FIELDSET>
                 <div class="aramex_loader"
-                     style="background-image: url(<?php echo esc_js(esc_url(plugins_url() . '/aramex-shipping-woocommerce/assets/img/preloader.gif')); ?>); height:60px; margin:10px 0; background-position-x: center; display:none; background-repeat: no-repeat; ">
+                     style="background-image: url(<?php echo esc_url(TJR_URL . 'include/shipping_methods/aramex_customised_official/assets/img/preloader.gif'); ?>); height:60px; margin:10px 0; background-position-x: center; display:none; background-repeat: no-repeat; ">
                 </div>
                 <div class="track-result mar-10" style="display:none;">
                     <h3><?php echo esc_html__('Result', 'aramex'); ?></h3>

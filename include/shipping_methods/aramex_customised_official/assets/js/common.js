@@ -15,11 +15,11 @@ jQuery.noConflict();
 (function ($) {
     jQuery(document).ready(function ($) {
         // $( "#aramex_overlay" ).insertBefore( $(  "#post" ));
-        $("#create_aramex_shipment").insertBefore($("#order_data"));
+        // $("#create_aramex_shipment").insertBefore($("#order_data"));
         $("#create_aramex_shipment").css("display", "inline-block");
-        $("#track_aramex_shipment").insertBefore($("#order_data"));
+        // $("#track_aramex_shipment").insertBefore($("#order_data"));
         $("#track_aramex_shipment").css("display", "inline-block");
-        $("#print_aramex_shipment").insertBefore($("#order_data"));
+        // $("#print_aramex_shipment").insertBefore($("#order_data"));
         $("#print_aramex_shipment").css("display", "inline-block");
 
         function aramexpop() {

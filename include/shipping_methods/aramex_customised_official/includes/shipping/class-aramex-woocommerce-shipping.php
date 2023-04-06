@@ -76,14 +76,20 @@ if (!class_exists('Aramex_Shipping_Method')) {
                 $product_weight = $product_weight * $product['quantity'];
                 $weight = $weight + $product_weight ;
             }
-            $extra_fees =  $weight > optional($this->settings , false)->extra_weight_limit ? round_up_to_correct_num($weight - optional($this->settings , false)->extra_weight_limit) * optional($this->settings , false)->fees_per_extra_weight_unit :  0;
+            $extra_weight_limit = !empty( $this->settings['extra_weight_limit']) ? $this->settings['extra_weight_limit'] : 0;
+            $fees_per_extra_weight_unit = !empty( $this->settings['fees_per_extra_weight_unit']) ? $this->settings['fees_per_extra_weight_unit'] : 0;
+            $extra_fees =  $weight > $extra_weight_limit ? round_up_to_correct_num($weight - $extra_weight_limit) * $fees_per_extra_weight_unit :  0;
 
             $settings = new Aramex_Shipping_Method();
             if (isset($settings->settings['price']) && $settings->settings['price'] >  0){
+                $price = $settings->settings['price'];
+                if( $this->settings['tax_enabled'] == 'yes' ) {
+                    $price += $price * 15 / 100;
+                }
                 $rate = array(
                     'id' => "aramex",
                     'label' => 'Aramex',
-                    'cost' => $settings->settings['price'] +  $extra_fees,
+                    'cost' => $price,
                 );
                 $this->add_rate($rate);
                 return ;
@@ -96,7 +102,6 @@ if (!class_exists('Aramex_Shipping_Method')) {
             if ($rate_calculator_checkout_page != 1) {
                 return false;
             }
-
             $referer_parse = parse_url($_SERVER['REQUEST_URI']);
             if (strpos($referer_parse['path'], '/product/')!==false) {
                 return false;
@@ -115,20 +120,22 @@ if (!class_exists('Aramex_Shipping_Method')) {
                 $product = $values['data'];
                 if( $product->is_type( 'simple' ) ){
                     // a simple product
+                    $product_defult_weight = isset( $this->settings['product_defult_weight'] ) ?  $this->settings['product_defult_weight'] : 0;
                     $array_weight = $product->get_data();
-                    $weight = $array_weight['weight'] >  0 ?  $array_weight['weight'] : $this->settings['product_defult_weight'];
-
+                    $weight = $array_weight['weight'] >  0 ?  $array_weight['weight'] : $product_defult_weight;
+                    
                   } elseif( $product->is_type( 'variation' ) ){
-                    // a variable product
+                      // a variable product
                     $array_weight = $product->get_data();
+                    $product_defult_weight = isset( $this->settings['product_defult_weight'] ) ?  $this->settings['product_defult_weight'] : 0;
                     if(empty($array_weight['weight'])){
                         $parent_weight = $product->get_parent_data();
-                        $weight = $parent_weight['weight'] >  0 ? $parent_weight['weight'] : $this->settings['product_defult_weight'];
+                        $weight = $parent_weight['weight'] >  0 ? $parent_weight['weight'] : $product_defult_weight;
 
                     }else{
                         $weight = $array_weight['weight'];
                     }
-                  }
+                }
                 $pkgWeight = $pkgWeight + $weight * $values['quantity'];
                 $pkgQty = $pkgQty + $values['quantity'];
             }
@@ -139,8 +146,9 @@ if (!class_exists('Aramex_Shipping_Method')) {
                 $product_group = 'DOM';
                 $allowed_methods = $this->settings['allowed_domestic_methods'];
             }
+
             if(!empty($rate_calculator_checkout_page_only_for_international) && $product_group == 'DOM'){
-            	WC()->session->set('aramex_block', false);
+                WC()->session->set('aramex_block', false);
             	return;
             }
 
@@ -158,8 +166,9 @@ if (!class_exists('Aramex_Shipping_Method')) {
                     'PostCode' => str_replace(" ","",$this->settings['postalcode']),
                     'CountryCode' => $this->settings['country'],
                 );
+                
                 $DestinationAddress = array(
-                    'StateOrProvinceCode' => $package['destination']['state'],
+                    'StateOrProvinceCode' => '',
                     'City' => $package['destination']['city'],
                     'PostCode' => str_replace(" ","",$package['destination']['postcode']),
                     'CountryCode' => $package['destination']['country'],
@@ -172,19 +181,15 @@ if (!class_exists('Aramex_Shipping_Method')) {
                     'ActualWeight' => array('Value' => $pkgWeight, 'Unit' => get_option('woocommerce_weight_unit')),
                     'ChargeableWeight' => array('Value' => $pkgWeight, 'Unit' => get_option('woocommerce_weight_unit')),
                     'NumberOfPieces' => $pkgQty,
-
-                    // just to prvenet errors
-                    'ProductGroup'			 => 'EXP',
-                    'ProductType'			 => 'PPX',
                 );
 
                 //SOAP object
-                //$soapClient = new SoapClient($info['baseUrl'] . 'aramex-rates-calculator-wsdl.wsdl', array("trace" => true, 'cache_wsdl' => WSDL_CACHE_NONE));
-                $soapClient = new SoapClient( __DIR__ . '/aramex-rates-calculator-wsdl.wsdl', array("trace" => true, 'cache_wsdl' => WSDL_CACHE_NONE));
+                $soapClient = new SoapClient($info['baseUrl'] . 'aramex-rates-calculator-wsdl.wsdl', array("trace" => true, 'cache_wsdl' => WSDL_CACHE_NONE));
+                // $soapClient = new SoapClient( __DIR__ . '/aramex-rates-calculator-wsdl.wsdl', array("trace" => true, 'cache_wsdl' => WSDL_CACHE_NONE));
                 $baseCurrencyCode = get_woocommerce_currency();
-                //pre($info['clientInfo'] ,  'client info');
-                $info['clientInfo']['UserName'] =  'fahad@tajerzone.com';
-                $info['clientInfo']['Password'] =  'Finance11$';
+                // prr($info['baseUrl'] ,  'client info');
+                // $info['clientInfo']['UserName'] =  'fahad@tajerzone.com';
+                // $info['clientInfo']['Password'] =  'Finance11$';
                 
                 $params = array(
                     'ClientInfo' => $info['clientInfo'],
@@ -204,8 +209,8 @@ if (!class_exists('Aramex_Shipping_Method')) {
                     $response = array();
                     if ($results->HasErrors) {
                         WC()->session->set('aramex_error', true);
-                        pre($results->Notifications->Notification);
-                        remote_pre($results->Notifications->Notification);
+                        // prr($results->Notifications->Notification);
+                        // remote_pre($results->Notifications->Notification);
                         if (isset($results->Notifications->Notification) && is_object($results->Notifications->Notification) && @count($results->Notifications->Notification)  > 1){
                             $error = "";
                             foreach ($results->Notifications->Notification as $notify_error) {
@@ -291,11 +296,15 @@ if (!class_exists('Aramex_Shipping_Method')) {
                 } 
                 $title = $title ?  $aramex_shipping_method_name ."->". $title : "";
                 $price = empty($this->settings['aramex_round']) ? ceil( $price ) : $price;
+                if( $this->settings['tax_enabled'] == 'yes' ) {
+                    $price += $price * 15 / 100;
+                }
                 $rate = array(
                     'id' => $allowed_method . "_aramex",
                     'label' => $title . "($allowed_method)",
                     'cost' => $price + $extra_fees,
                 );
+                // prr($rate);
                 $this->add_rate($rate);
             }
         }

@@ -1,11 +1,11 @@
 <?php
-    
-    class SMSA
+    class SMSA_API
     {
         /**
          * @var optional
          */
         private $dataHelper;
+
         
         public function __construct()
         {
@@ -22,10 +22,38 @@
             try
             {
                 $data = array_merge($data , [ 'passKey' => $this->dataHelper->passkey ]);
-                return $this->createRequest()->addShipMPS((object)$data);
+                $response = $this->createRequest()->addShipMPS((object)$data);
+
             } catch( Exception $exception )
             {
-                return $exception;
+
+                $response = $exception->getMessage();
+            }
+
+            return $response;
+        }
+
+        public function getAllRetails()
+        {
+            try
+            {
+                $data = [ 'passKey' => $this->dataHelper->passkey ];
+                return $this->createRequest()->getAllRetails((object)$data)->getAllRetailsResult;
+            } catch( SoapFault $e )
+            {
+                return $e->faultstring;
+            }
+        }
+
+        public function getShipCharges($data)
+        {
+            try
+            {
+                $data = array_merge($data , [ 'passKey' => $this->dataHelper->passkey ]);
+                return $this->createRequest()->getShipCharges((object)$data)->getShipChargesResult;
+            } catch( SoapFault $e )
+            {
+                return $e->faultstring;
             }
         }
         
@@ -43,7 +71,7 @@
                 'passKey' => $this->dataHelper->passkey ,
             ];
             
-            return new SoapClient($this->dataHelper->api_url , $options);
+            return new SoapClient( $this->dataHelper->api_url , $options );
         }
         
         /**
@@ -54,21 +82,13 @@
         public function downloadPdf($awbNo)
         {
             $pdf = $this->getPDF($awbNo);
-            if($pdf instanceof Exception)
+            if( empty( $pdf ) )
             {
-                return $pdf;
+                return 'pdf';
             }
             else
             {
-                $file = 'awb' . $awbNo . '.pdf';
-                header('Content-Description: File Transfer');
-                header('Content-Type: application/octet-stream');
-                header('Content-Disposition: attachment; filename="' . $file . '"');
-                header('Expires: 0');
-                header('Cache-Control: must-revalidate');
-                header('Pragma: public');
-                echo $pdf;
-                die();
+                return $pdf;
             }
         }
         
@@ -104,9 +124,9 @@
             {
                 $data = [ 'awbNo' => $awbNo , 'passKey' => $this->dataHelper->passkey ];
                 return $this->createRequest()->getPDF((object)$data)->getPDFResult;
-            } catch( Exception $exception )
+            } catch( SoapFault $e )
             {
-                return $exception;
+                return $e->faultstring;
             }
         }
         
@@ -117,10 +137,14 @@
          */
         public function getStatus($awbNo)
         {
+            
             try
             {
                 $data = [ 'awbNo' => $awbNo , 'passkey' => $this->dataHelper->passkey ];
-                return $this->createRequest()->getStatus((object)$data)->getStatusResult;
+                // return $this->createRequest()->getStatus((object)$data)->getStatusResult;
+                $getStatus = $this->createRequest()->getStatus((object)$data);
+                $getStatus = isset( $getStatus->getStatusResult ) ? $getStatus->getStatusResult : [];
+                return $getStatus;
             } catch( Exception $exception )
             {
                 return $exception;
@@ -138,18 +162,18 @@
             {
                 $data = [ 'awbNo' => $awbNo , 'passkey' => $this->dataHelper->passkey ];
                 $result = $this->createRequest()->getTracking((object)$data);
-                
                 $xml = @simplexml_load_string($result->getTrackingResult->any);
-                if(is_array($xml) && $xml->count() > 0)
+                if( is_array($xml) || is_object($xml) )
                 {
+                  
                     $track = $xml->NewDataSet[0]->Tracking;
                     return [
-                        'awb' => (string)$track->awbNo ,
-                        'date' => (string)$track->Date ,
-                        'activity' => (string)$track->Activity ,
-                        'details' => (string)$track->Details ,
-                        'location' => (string)$track->Location ,
-                        'reference' => (string)$track->refNo ,
+                        'Awb Number' => (string)$track->awbNo ,
+                        'Date' => (string)$track->Date ,
+                        'Activity' => (string)$track->Activity ,
+                        'Details' => (string)$track->Details ,
+                        'Location' => (string)$track->Location ,
+                        'Reference' => (string)$track->refNo ,
                     ];
                 }
                 return [];
@@ -167,12 +191,29 @@
         {
             try
             {
-                $data = [ 'awbNo' => $awbNo , 'passkey' => $this->dataHelper->passkey ];
-                return $this->createRequest()->cancelShipment((object)$data);
-            } catch( Exception $exception )
+                $data = [ 
+                    'awbNo' => $awbNo ,
+                    'passkey' => $this->dataHelper->passkey ,
+                    'reas' => 'Testing Smsa Api',
+                ];
+                return $this->createRequest()->cancelShipment((object)$data)->cancelShipmentResult;
+            } catch( SoapFault $e )
             {
-                return $exception;
+                return $e->faultstring;
             }
 
+        }
+
+        public function saphOrderReady($data)
+        {
+            try
+            {   
+                $data = array_merge([ 'passKey' => $this->dataHelper->passkey ] , $data );
+                // return $data;
+                return $this->createRequest()->saphOrderReady((object)$data)->saphOrderReadyResult;
+            } catch( SoapFault $e )
+            {
+                return $e->faultstring;
+            }
         }
     }

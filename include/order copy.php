@@ -170,6 +170,7 @@ function tjr_shipping_process(){
     $msg = '';
 
     if(array_key_exists($process,$available_processes)){
+        if( $method == 'smsa' ) {
         if ($process ==  'getStatus') {
             $msg = "<b>".$SMSA->getStatus($awb_no)."</b>";
         }elseif ($process == 'downloadPdf') {
@@ -205,6 +206,11 @@ function tjr_shipping_process(){
                 }
             }
         }
+    }else if( $method == 'aramex' ) {
+        if ($process == 'getTracking') {
+            $response = 'ooooooo';
+        }
+    }
     }else {
         $msg = __('This process not supported' , 'tjr');
     }

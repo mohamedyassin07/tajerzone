@@ -11,7 +11,7 @@
              */
             public function __construct()
             {
-                $this->id = 'webgate_method';
+                $this->id = 'smsa';
                 $this->method_title = __('SMSA (TJR)' , 'webgate');
                 $this->method_description = __('Shipping Method for SMSAShipping' , 'webgate');
                 
@@ -55,6 +55,12 @@
                         'type' => 'checkbox' ,
                         'description' => __('Enable this shipping.' , 'webgate') ,
                         'default' => 'yes' ,
+                    ],
+                    'tax_enabled' => [
+                        'title' => __('Enable Tax' , 'webgate') ,
+                        'type' => 'checkbox' ,
+                        'description' => __('Enable Tax For this shipping.' , 'webgate') ,
+                        'default' => 'yes' ,
                     ] ,
                     
                     'title' => [
@@ -72,23 +78,23 @@
                         'title' => __('Shpping Fixed Price Fees' , 'tjr') ,
                         'type' => 'number' ,
                         'default' => 0 ,
-                        //'description' => __('If it\'s value > 0 it will be used instead of the Official SMSA Calculations', 'tjr'),
+                        'description' => __('If it\'s value > 0 it will be used instead of the Official SMSA Calculations', 'tjr'),
                     ],
                     'defult_product_weight' => [
                         'title' => __('Defult Product Weight' , 'tjr') ,
-                        'type' => 'number' ,
-                        'default' => 1 ,
+                        'type' => 'decimal' ,
+                        'default' => 1.00 ,
                         'description' => __('Defult Product Weight, applied if the product don\'t has a correct weight' , 'tjr') ,
                     ] ,                        
                     'extra_weight_limit' => [
                         'title' => __('Extra Weight Limit' , 'tjr') ,
-                        'type' => 'number' ,
-                        'default' => 0 ,
+                        'type' => 'decimal' ,
+                        'default' => 0.00 ,
                         'description' => __('Extra Weight fees will not applied up to this weight limit' , 'tjr') ,
                     ] ,                        
                     'fees_per_extra_weight_unit' => [
                         'title' => __('Fees per extra weight Unit' , 'tjr') ,
-                        'type' => 'number' ,
+                        'type' => 'decimal' ,
                         'default' => 0 ,
                         'description' => __('Extra Fees will be applied for weights larger than "Extra Weight Limit" per weight unit' , 'tjr') ,
                     ] ,
@@ -109,7 +115,7 @@
                         'type' => 'text' ,
                         'default' => 'https://track.smsaexpress.com/secom/smsawebservice.asmx?WSDL' ,
                     ] ,
-                    
+
                     'shipper_name' => [
                         'title' => __('Shipper Name' , 'webgate') ,
                         'type' => 'text' ,
@@ -157,6 +163,17 @@
                         'title' => __('Ship to Specific Countries' , 'webgate') ,
                         'options' => require('country.php') ,
                     ] ,
+                    'shipType' => [
+                        'type' => 'select' ,
+                        'title' => __('Ship Type' , 'webgate') ,
+                        'options' => [
+                            'DLV' => 'DLV',
+                            'VAL' => 'VAL',
+                            'HAL' => 'HAL',
+                            'BLT' => 'BLT',
+                        ],
+                        'default' => 'DLV' ,
+                    ],
                 
                 ];
                 
@@ -171,24 +188,73 @@
             {
                 $WebGate_Shipping_Method = new WebGate_Shipping_Method();
                 $price = $WebGate_Shipping_Method->settings['price'];
-
-                if($price >  0){
-                    $weight =  0;
-                    foreach ( $package['contents'] as $key => $product ) 
-                    { 
-                        $product_date = $product['data'];
-                        $product_weight = is_numeric($product_date->get_weight()) && $product_date->get_weight() >  0 ?  $product_date->get_weight() :  optional($this->settings , false)->defult_product_weight  ;
-                        $product_weight = $product_weight * $product['quantity'];
-                        $weight = $weight + $product_weight ;
-                    }
+                foreach ( $package['contents'] as $key => $product ) 
+                $weight =  0;
+                { 
+                    $product_date = $product['data'];
+                    $product_weight = is_numeric($product_date->get_weight()) && $product_date->get_weight() >  0 ?  $product_date->get_weight() :  optional($this->settings , false)->defult_product_weight  ;
+                    $product_weight = $product_weight * $product['quantity'];
+                    $weight = $weight + $product_weight ;
+                }
+                $country_list = require('country.php');
+                $destCntry = $package['destination']['country'];
+                if( $price >  0 && $destCntry === 'SA'){
                     $extra_fees =  $weight > optional($this->settings , false)->extra_weight_limit ? round_up_to_correct_num($weight - optional($this->settings , false)->extra_weight_limit) * optional($this->settings , false)->fees_per_extra_weight_unit :  0;
                     $price += $extra_fees;
+                    
+                if( $this->settings['tax_enabled'] == 'yes' ) {
+                    $price += $price * 15 / 100;
+                }
                     $rate = [
                         'id' => $this->id ,
                         'label' => $this->title ,
                         'cost' => $price ,
                     ];
                     $this->add_rate($rate);                        
+                } else {
+
+                    // return prr($this->settings);
+
+                    $SMSA = new SMSA_API();
+                    $destCntry = $package['destination']['country'];
+                    $data = [
+                        "shipCity" => $this->settings['shipper_city'],
+                        "shipCntry" => $this->settings['shipper_country'],
+                        "destCity" => $package['destination']['city'],
+                        "destCntry" => $package['destination']['country'],
+                        "shipType" => $this->settings['shipType'],
+                        "codAmt" => "",
+                        "weight" => number_format($weight, 2, '.', ''),
+                        // "weight" => 7.00,
+
+                    ];
+                    $ShipCharges = $SMSA->getShipCharges($data);
+                    
+                    if( $destCntry === 'SA' && $ShipCharges->RequestStatus == 'Success' ) {
+                    $extra_fees =  $weight > optional($this->settings , false)->extra_weight_limit ? round_up_to_correct_num($weight - optional($this->settings , false)->extra_weight_limit) * optional($this->settings , false)->fees_per_extra_weight_unit :  0;
+                    $price = $ShipCharges->ShipCharges;
+                    $price += $extra_fees;
+                    if( $this->settings['tax_enabled'] == 'yes' ) {
+                        $price += $price * 15 / 100;
+                    }
+                        $rate = [
+                            'id' => $this->id ,
+                            'label' => $this->title ,
+                            'cost' => $price ,
+                            'taxes' => '',
+                        ];
+                        $this->add_rate($rate); 
+                    } else {
+                        $rate = [
+                            'id' => $this->id ,
+                            'label' => 'Smsa : No shipping options were found for '. $country_list[$destCntry]  ,
+                            'cost' => '' ,
+                            'taxes' => '',
+                        ];
+                        $this->add_rate($rate); 
+                        // wc_add_notice("Smsa :  ".$ShipCharges->RequestStatus, "error");
+                    }
+
                 }
             }
         }

@@ -14,7 +14,7 @@
     $parent = count($vendors_orders) > 1 ? true : wp_get_post_parent_id($order->get_id());
     $order_data = $order->get_data(); // The Order data
     $order_id =  is_admin() && $_GET['post'] >  0 ?  $_GET['post'] : 0 ;
-    if($parent ===  true && $view_for != 'client')){
+    if($parent ===  true && $view_for != 'client'){
         echo  "<$heading>".__("This is the parent order of these orders",'tjr') ."</$heading>";
         foreach ($vendors_orders as $child_id) {
             echo '<'.$tag.' href="'.get_edit_post_link($child_id).'" class="'.$class.'">'.__('order ', 'tjr').$child_id.'</'.$tag.'> ';
@@ -46,7 +46,6 @@
     jQuery(document).ready( function(){	
         jQuery( ".shipping_process" ).click(function(e) { 
             e.preventDefault();
-
             jQuery.ajax({
                 url : '<?= $ajax_url ?>',
                 type : 'post',
@@ -62,6 +61,7 @@
                 },
                 success : function(response) {
                     var data =  response.data;
+                    console.log(data.msg);
                     if(data.hasOwnProperty('download')){
                         // 
                     }else if(data.hasOwnProperty('link')){
@@ -70,6 +70,10 @@
                         var msg = "</br></br>" + data.msg + "</br></br>";
                         jQuery('#tjr_shipping_mangement_response').html(msg);
                     }
+                },
+                error: function(xhr, status, error) {
+                var err = eval("(" + xhr.responseText + ")");
+                alert(err.Message);
                 }
             });            
         });

@@ -98,6 +98,7 @@ class Aramex_Bulk_Method extends Aramex_Helper
                 $descriptionOfGoods = "";
                 //calculating total weight of current order
                 $totalWeight = 0;
+                $weight = 0;
                 $itemsv = $order->get_items();
                 foreach ($itemsv as $itemvv) {
                     if ($itemvv['qty'] > 0) {
@@ -107,33 +108,25 @@ class Aramex_Bulk_Method extends Aramex_Helper
                             if( $product->is_type( 'simple' ) ){
                                 // a simple product
                                 $weight = $productData['weight'];
-                              } elseif( $product->is_type( 'variation' ) ){
+                              } elseif( $product->is_type( 'variation' ) || $product->is_type( 'variable' ) ){
                                 // a variable product
                                 if(empty($productData['weight'])){
-                                    $parent_weight = $product->get_parent_data();
-                                    $weight =  $parent_weight['weight'];
+                                    if(wc_get_product($product->get_parent_id())){
+                                        $parent_weight = $product->get_parent_data();
+                                        $weight =  $parent_weight['weight'];
+                                    }
                                 }else{
                                     $weight = $productData['weight'];
                                 }
                               }
 
-                            $totalWeight += $weight * $itemvv['qty'];
+                            $totalWeight += (float)$weight * $itemvv['qty'];
                             $descriptionOfGoods .= $itemvv['product_id'] . ' - ' . trim($itemvv['name']) . ' : ';
                             $qty = $itemvv['qty'];
                         }
                     }
                 }
-/*
-                foreach ($itemsv as $itemvv) {
-                    if ($itemvv['qty'] > 0) {
-                        $product = wc_get_product($itemvv['product_id']);
-                        $weight = $product->weight * $itemvv['qty'];
-                        $descriptionOfGoods .= $itemvv['product_id'] . ' - ' . trim($itemvv['name']) . ' : ';
-                        $totalWeight += $weight;
-                        $qty = $itemvv['qty'];
-                    }
-                }
-*/
+
 
 
                 if ($orderItem['method'] == 'DOM') {
@@ -222,7 +215,11 @@ class Aramex_Bulk_Method extends Aramex_Helper
                         'Type' => ''
                     )
                 );
-
+                // To covert the weight unit from 'lbs' to 'lb'
+                $weightUnit = get_option('woocommerce_weight_unit');
+                if ($weightUnit == 'lbs'){
+                    $weightUnit = 'lb';
+                }
                 // Other Main Shipment Parameters
                 $params['Reference1'] = (string)$order->id;
                 $params['Reference2'] = '';
@@ -246,7 +243,7 @@ class Aramex_Bulk_Method extends Aramex_Helper
                     ),
                     'ActualWeight' => array(
                         'Value' => (string)$totalWeight,
-                        'Unit' => get_option('woocommerce_weight_unit')
+                        'Unit' => $weightUnit
                     ),
                     'ProductGroup' => $orderItem['method'],
                     'ProductType' => $aramex_shipment_info_product_type,
@@ -259,9 +256,9 @@ class Aramex_Bulk_Method extends Aramex_Helper
                     'Items' => '1',
                 );
 
-                 if ($post['aramex_shipment_info_service_type'] != null)
+                 if ($aramex_shipment_info_service_type != null)
                 {
-                    $hasCODS= array_search("CODS",$post['aramex_shipment_info_service_type'],false);
+                    $hasCODS= array_search("CODS",$aramex_shipment_info_service_type,false);
                     if ($hasCODS !== false)
                     {         
                          $params['Details']['CashOnDeliveryAmount'] = array(
@@ -339,27 +336,32 @@ class Aramex_Bulk_Method extends Aramex_Helper
         $soapClient = new SoapClient($info['baseUrl'] . 'shipping.wsdl', array('soap_version' => SOAP_1_1));
         try {
             //create shipment call
-            remote_pre($major_par);
-            pre($major_par ,  'major par');
             $auth_call = $soapClient->CreateShipments($major_par);
-            remote_pre($auth_call);
-            pre($major_par ,  'auth_call');
             if ($auth_call->HasErrors) {
                 if (empty($auth_call->Shipments)) {
-                    if (count($auth_call->Notifications->Notification) > 1) {
-                        foreach ($auth_call->Notifications->Notification as $notify_error) {
-                            aramex_errors()->add('error',
+                    if (count((array)$auth_call->Notifications->Notification) > 1) {
+                        if(is_array($auth_call->Notifications->Notification)){
+                            foreach ($auth_call->Notifications->Notification as $notify_error) {
+                                aramex_errors()->add('error',
                                 __('Aramex: ' . $notify_error->Code . ' - ' . $notify_error->Message));
+                            }
+                        }else{
+                            aramex_errors()->add('error',
+                                __('Aramex: ' . $auth_call->Notifications->Notification->Code . ' - ' . $auth_call->Notifications->Notification->Message));
                         }
                     } else {
                         aramex_errors()->add('error',
                             __('Aramex: ' . $auth_call->Notifications->Notification->Code . ' - ' . $auth_call->Notifications->Notification->Message));
                     }
                 } else {
-                    if (count($auth_call->Shipments->ProcessedShipment->Notifications->Notification) > 1) {
+                    if (count((array)$auth_call->Shipments->ProcessedShipment->Notifications->Notification) > 1) {
                         $notification_string = '';
-                        foreach ($auth_call->Shipments->ProcessedShipment->Notifications->Notification as $notification_error) {
-                            $notification_string .= $notification_error->Code . ' - ' . $notification_error->Message . ' <br />';
+                        if(is_array($auth_call->Shipments->ProcessedShipment->Notifications->Notification)){
+                            foreach ($auth_call->Shipments->ProcessedShipment->Notifications->Notification as $notification_error) {
+                                $notification_string .= $notification_error->Code . ' - ' . $notification_error->Message . ' <br />';
+                            }
+                        }else{
+                            $notification_string .= $auth_call->Shipments->ProcessedShipment->Notifications->Notification->Code . ' - ' . $auth_call->Shipments->ProcessedShipment->Notifications->Notification->Message . ' <br />';
                         }
                         $this->aramex_errors()->add('error', __($notification_string, 'aramex'));
                     } else {
@@ -391,6 +393,7 @@ class Aramex_Bulk_Method extends Aramex_Helper
                 /* sending mail */
                 global $woocommerce;
                 $mailer = $woocommerce->mailer();
+                $supportEmail = $mailer->get_from_address();
                 $message_body = sprintf(__('<p>Dear <b>%s</b> </p>', 'aramex'), $shipper_name);
                 $message_body .= sprintf(__('<p>Your order is #%s </p>', 'aramex'),
                     $auth_call->Shipments->ProcessedShipment->Reference1);
@@ -398,7 +401,7 @@ class Aramex_Bulk_Method extends Aramex_Helper
                     $auth_call->Shipments->ProcessedShipment->ID);
                 $message_body .= __('<p>You can track shipment on <a href="http://www.aramex.com/express/track.aspx">http://www.aramex.com/express/track.aspx</a> </p>',
                     'aramex');
-                $message_body .= __('<p>If you have any questions, please feel free to contact us <b>support@example.com</b> </p>',
+                $message_body .= __('<p>If you have any questions, please feel free to contact us <b>'.$supportEmail.'</b> </p>',
                     'aramex');
                 $message = $mailer->wrap_message(
                 // Message head and message body.
@@ -438,8 +441,6 @@ class Aramex_Bulk_Method extends Aramex_Helper
             }
         } catch (Exception $e) {
             $errors = $e->getMessage();
-            remote_pre($errors);
-            pre($errors , __FILE__ . " Error");
             return array($method, 'error');
         }
     }

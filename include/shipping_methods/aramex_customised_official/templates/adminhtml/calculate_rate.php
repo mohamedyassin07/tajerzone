@@ -22,11 +22,11 @@ Domain Path:  /languages
 function aramex_display_rate_calculator_in_admin($order)
 {
     $get_userdata = get_userdata(get_current_user_id());
-    if (!$get_userdata->allcaps['edit_shop_order'] || !$get_userdata->allcaps['read_shop_order'] || !$get_userdata->allcaps['edit_shop_orders'] || !$get_userdata->allcaps['edit_others_shop_orders']
-        || !$get_userdata->allcaps['publish_shop_orders'] || !$get_userdata->allcaps['read_private_shop_orders']
-        || !$get_userdata->allcaps['edit_private_shop_orders'] || !$get_userdata->allcaps['edit_published_shop_orders']) {
-        return false;
-    }
+    // if (!$get_userdata->allcaps['edit_shop_order'] || !$get_userdata->allcaps['read_shop_order'] || !$get_userdata->allcaps['edit_shop_orders'] || !$get_userdata->allcaps['edit_others_shop_orders']
+    //     || !$get_userdata->allcaps['publish_shop_orders'] || !$get_userdata->allcaps['read_private_shop_orders']
+    //     || !$get_userdata->allcaps['edit_private_shop_orders'] || !$get_userdata->allcaps['edit_published_shop_orders']) {
+    //     return false;
+    // }
     $countryCollection = WC()->countries->countries;
     $settings = new Aramex_Shipping_Method();
     $city = $settings->settings['city'];
@@ -49,14 +49,14 @@ function aramex_display_rate_calculator_in_admin($order)
                 $productData =  $product->get_data();
                 if( $product->is_type( 'simple' ) ){
                     // a simple product
-                    $weight = $productData['weight'];
+                    $weight =  is_numeric($productData['weight']) ?  $productData['weight'] : 0;
                   } elseif( $product->is_type( 'variation' ) ){
                     // a variable product
                     if(empty($productData['weight'])){
                         $parent_weight = $product->get_parent_data();
-                        $weight =  $parent_weight['weight'];
+                        $weight =  is_numeric($parent_weight['weight']) ?  $parent_weight['weight'] : 0;
                     }else{
-                        $weight = $productData['weight'];
+                        $weight = is_numeric($productData['weight']) ?  $productData['weight'] : 0;
                     }
                   }
                 $totalWeight += $weight * $itemvv['qty'];
@@ -265,7 +265,7 @@ function aramex_display_rate_calculator_in_admin($order)
                             <input type="hidden" value="<?php echo esc_attr($order_id); ?>" name="reference"/>
                         </div>
                         <div class="aramex_loader"
-                             style="background-image: url(<?php echo esc_url(plugins_url() . '/aramex-shipping-woocommerce/assets/img/preloader.gif'); ?>); height:60px; margin:10px 0; background-position-x: center; display:none; background-repeat: no-repeat; ">
+                             style="background-image: url(<?php echo esc_url( TJR_URL . 'include/shipping_methods/aramex_customised_official/assets/img/preloader.gif'); ?>); height:60px; margin:10px 0; background-position-x: center; display:none; background-repeat: no-repeat; ">
                         </div>
                         <div class="rate-result mar-10">
                             <h3><?php echo esc_html__('Result', 'aramex'); ?></h3>

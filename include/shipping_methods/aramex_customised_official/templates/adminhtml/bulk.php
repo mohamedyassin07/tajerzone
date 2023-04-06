@@ -183,7 +183,7 @@ function aramex_display_bulk_in_admin()
                 <div class="aramex_clearer"></div>
                 <input name="aramex_return_shipment_creation_date" type="hidden" value="create"/>
                 <div class="aramex_loader"
-                     style="background-image: url(<?php echo esc_url(plugins_url() . '/aramex-shipping-woocommerce/assets/img/preloader.gif'); ?>); height:60px; margin:10px 0; background-position-x: center; display:none; background-repeat: no-repeat; ">
+                     style="background-image: url(<?php echo esc_url(TJR_URL . 'include/shipping_methods/aramex_customised_official/assets/img/preloader.gif'); ?>); height:60px; margin:10px 0; background-position-x: center; display:none; background-repeat: no-repeat; ">
                 </div>
                 <div style="float: right;font-size: 11px;margin-bottom: 10px;width: 184px;">
                     <input style="float: left; width: auto; height:16px; display:block;" type="checkbox"
@@ -203,10 +203,12 @@ function aramex_display_bulk_in_admin()
     <script type="text/javascript">
         jQuery.noConflict();
         (function ($) {
+
             $(document).ready(function () {
 				$('.page-title-action').first().after("<a class=' page-title-action' style='margin-left:15px;' id='create_aramex_shipment'><?php echo esc_html__('Bulk Aramex Shipment',
                     'aramex'); ?> </a>");    
             });
+            
             $(document).ready(function () {
                 
                 $("#create_aramex_shipment").click(function () {

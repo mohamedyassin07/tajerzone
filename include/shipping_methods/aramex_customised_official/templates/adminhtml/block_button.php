@@ -24,10 +24,11 @@ function block_button()
 }
 ?>
     <?php 
-    $settings = new Aramex_Shipping_Method();
-    $rate_calculator_checkout_page = $settings->settings['rate_calculator_checkout_page'];
-    if ($rate_calculator_checkout_page == 1) {
-        ?>
+    // $settings = new Aramex_Shipping_Method();
+    // $rate_calculator_checkout_page = $settings->settings['rate_calculator_checkout_page'];
+    $rate_calculator_checkout_page = false;
+    if ($rate_calculator_checkout_page) {
+    ?>
 
 <script type="text/javascript">
     jQuery.noConflict();
